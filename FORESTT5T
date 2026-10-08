@@ -1,0 +1,275 @@
+-- =============================================================================
+-- FOREST HUB | Fully Operational Master Engine (Purple Edition)
+-- Target Game: 99 Nights in the Forest
+-- Discord: discord.gg/QcRYRdwc7
+-- =============================================================================
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local UserInputService = game:GetService("UserInputService")
+
+-- =============================================================================
+-- STATE MANAGERS
+-- =============================================================================
+
+local TabButtons = {}
+local TabFrames = {}
+local ActiveStates = {}
+
+local CurrentActiveTab = "Main"
+local SelectedWoodType = "Small Tree"
+
+-- =============================================================================
+-- GUI MAIN BASICS
+-- =============================================================================
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ForestHubPurpleEdition"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = game:GetService("CoreGui")
+
+local MainPanel = Instance.new("Frame")
+MainPanel.Name = "MainPanel"
+MainPanel.Parent = ScreenGui
+MainPanel.BackgroundColor3 = Color3.fromRGB(24, 18, 36)
+MainPanel.Position = UDim2.new(0.25, 0, 0.25, 0)
+MainPanel.Size = UDim2.new(0, 540, 0, 360)
+MainPanel.Active = true
+MainPanel.Draggable = true
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 6)
+MainCorner.Parent = MainPanel
+
+local PanelStroke = Instance.new("UIStroke")
+PanelStroke.Color = Color3.fromRGB(48, 36, 72)
+PanelStroke.Thickness = 1
+PanelStroke.Parent = MainPanel
+
+-- =============================================================================
+-- HEADER SYSTEM
+-- =============================================================================
+
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Parent = MainPanel
+Header.BackgroundColor3 = Color3.fromRGB(36, 26, 54)
+Header.Size = UDim2.new(1, 0, 0, 38)
+
+local HeaderCorner = Instance.new("UICorner")
+HeaderCorner.CornerRadius = UDim.new(0, 6)
+HeaderCorner.Parent = Header
+
+local Title = Instance.new("TextLabel")
+Title.Parent = Header
+Title.BackgroundTransparency = 1
+Title.Text = "  FOREST HUB"
+Title.Size = UDim2.new(0, 110, 1, 0)
+Title.TextColor3 = Color3.fromRGB(240, 230, 255)
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 13
+
+local Subtitle = Instance.new("TextLabel")
+Subtitle.Parent = Header
+Subtitle.BackgroundTransparency = 1
+Subtitle.Text = "99 Nights in Forest 1.5.0 | discord.gg/QcRYRdwc7"
+Subtitle.Position = UDim2.new(0, 115, 0, 0)
+Subtitle.Size = UDim2.new(1, -215, 1, 0)
+Subtitle.TextColor3 = Color3.fromRGB(170, 150, 200)
+Subtitle.TextXAlignment = Enum.TextXAlignment.Left
+Subtitle.Font = Enum.Font.SourceSans
+Subtitle.TextSize = 11
+
+local ControlBox = Instance.new("Frame")
+ControlBox.Parent = Header
+ControlBox.BackgroundTransparency = 1
+ControlBox.Size = UDim2.new(0, 90, 1, 0)
+ControlBox.Position = UDim2.new(1, -95, 0, 0)
+
+local function createHeaderIcon(text, position, callback)
+    local button = Instance.new("TextButton")
+    button.Parent = ControlBox
+    button.Text = text
+    button.Size = UDim2.new(0, 24, 0, 24)
+    button.Position = UDim2.new(0, position, 0, 7)
+    button.BackgroundColor3 = Color3.fromRGB(54, 40, 80)
+    button.TextColor3 = Color3.fromRGB(220, 200, 245)
+    button.Font = Enum.Font.SourceSansBold
+    button.TextSize = 12
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 4)
+    corner.Parent = button
+
+    button.MouseButton1Click:Connect(callback)
+    return button
+end
+
+createHeaderIcon("Q", 0, function() print("Search button pressed") end)
+
+createHeaderIcon("🗖", 30, function()
+    local maximized = MainPanel.Size == UDim2.new(1, -20, 1, -20)
+    if maximized then
+        MainPanel.Position = UDim2.new(0.25, 0, 0.25, 0)
+        MainPanel.Size = UDim2.new(0, 540, 0, 360)
+    else
+        MainPanel.Position = UDim2.new(0, 10, 0, 10)
+        MainPanel.Size = UDim2.new(1, -20, 1, -20)
+    end
+end)
+
+createHeaderIcon("X", 60, function() ScreenGui:Destroy() end)
+
+-- =============================================================================
+-- SIDEBAR CONFIGURATION
+-- =============================================================================
+
+local LeftSideBar = Instance.new("Frame")
+LeftSideBar.Parent = MainPanel
+LeftSideBar.BackgroundColor3 = Color3.fromRGB(16, 12, 24)
+LeftSideBar.Position = UDim2.new(0, 0, 0, 38)
+LeftSideBar.Size = UDim2.new(0, 140, 1, -38)
+
+local SidebarList = Instance.new("UIListLayout")
+SidebarList.Parent = LeftSideBar
+SidebarList.SortOrder = Enum.SortOrder.LayoutOrder
+SidebarList.Padding = UDim.new(0, 1)
+
+-- =============================================================================
+-- RULE 1 IMPLEMENTED: FULLY FUNCTIONAL TAB SYSTEM
+-- =============================================================================
+
+local function switchTab(targetTabName)
+    CurrentActiveTab = targetTabName
+
+    for tabName, frame in pairs(TabFrames) do
+        frame.Visible = (tabName == targetTabName)
+    end
+
+    for tabName, button in pairs(TabButtons) do
+        if tabName == targetTabName then
+            button.BackgroundColor3 = Color3.fromRGB(32, 24, 46)
+            button.BackgroundTransparency = 0
+            button.TextColor3 = Color3.fromRGB(255, 255, 255)
+            button:FindFirstChild("Indicator").Visible = true
+        else
+            button.BackgroundTransparency = 1
+            button.TextColor3 = Color3.fromRGB(145, 135, 160)
+            button:FindFirstChild("Indicator").Visible = false
+        end
+    end
+end
+
+local function createTabButton(name, order)
+    local button = Instance.new("TextButton")
+    button.Parent = LeftSideBar
+    button.Text = "   " .. name
+    button.Size = UDim2.new(1, 0, 0, 34)
+    button.BackgroundTransparency = 1
+    button.TextColor3 = Color3.fromRGB(145, 135, 160)
+    button.Font = Enum.Font.SourceSansBold
+    button.TextXAlignment = Enum.TextXAlignment.Left
+    button.TextSize = 13
+    button.LayoutOrder = order
+
+    local Indicator = Instance.new("Frame")
+    Indicator.Name = "Indicator"
+    Indicator.Size = UDim2.new(0, 3, 1, 0)
+    Indicator.Position = UDim2.new(0, 0, 0, 0)
+    Indicator.BackgroundColor3 = Color3.fromRGB(150, 75, 245)
+    Indicator.Visible = false
+    Indicator.Parent = button
+
+    TabButtons[name] = button
+
+    button.MouseButton1Click:Connect(function()
+        switchTab(name)
+    end)
+end
+
+-- =============================================================================
+-- RULE 3 IMPLEMENTED: AUTO-SIZING SCROLLING FRAME CANVAS ENGINE
+-- =============================================================================
+
+local function createTabContentFrame(name)
+    local ScrollingFrame = Instance.new("ScrollingFrame")
+    ScrollingFrame.Name = name .. "ContentPanel"
+    ScrollingFrame.Parent = MainPanel
+    ScrollingFrame.Position = UDim2.new(0, 148, 0, 46)
+    ScrollingFrame.Size = UDim2.new(1, -156, 1, -54)
+    ScrollingFrame.BackgroundColor3 = Color3.fromRGB(16, 12, 24)
+    ScrollingFrame.BorderSizePixel = 0
+    ScrollingFrame.ScrollBarThickness = 3
+    ScrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(60, 45, 90)
+    ScrollingFrame.Visible = false
+
+    local ListLayout = Instance.new("UIListLayout")
+    ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    ListLayout.Padding = UDim.new(0, 5)
+    ListLayout.Parent = ScrollingFrame
+
+    -- Automated Canvas Vector Expansion Logic
+    ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 15)
+    end)
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = ScrollingFrame
+
+    TabFrames[name] = ScrollingFrame
+    return ScrollingFrame
+end
+
+-- Generate dynamic tab targets
+local MainTab = createTabContentFrame("Main")
+local BringTab = createTabContentFrame("Bring Items")
+local VisualsTab = createTabContentFrame("Visuals")
+local TeleportTab = createTabContentFrame("Teleport")
+local PlayerTab = createTabContentFrame("Local Player")
+
+-- Initialize tab buttons mapping
+createTabButton("Main", 1)
+createTabButton("Bring Items", 2)
+createTabButton("Visuals", 3)
+createTabButton("Teleport", 4)
+createTabButton("Local Player", 5)
+
+switchTab("Main")
+
+-- =============================================================================
+-- DYNAMIC SUB-SEGMENT COMPONENTS (TOGGLES, DROPDOWNS & HEADERS)
+-- =============================================================================
+
+local function createSectionHeader(parentFrame, title, order)
+    local Label = Instance.new("TextLabel")
+    Label.Parent = parentFrame
+    Label.Text = title
+    Label.Size = UDim2.new(1, -10, 0, 22)
+    Label.BackgroundTransparency = 1
+    Label.TextColor3 = Color3.fromRGB(165, 140, 195)
+    Label.Font = Enum.Font.SourceSansBold
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.TextSize = 12
+    Label.LayoutOrder = order
+end
+
+local function createExactToggle(parentFrame, name, order, idKey, callback)
+    ActiveStates[idKey] = false
+    local Row = Instance.new("Frame", parentFrame)
+    Row.Size = UDim2.new(1, -10, 0, 36)
+    Row.BackgroundColor3 = Color3.fromRGB(32, 24, 46)
+    Row.LayoutOrder = order
+    Instance.new("UICorner", Row).CornerRadius = UDim.new(0, 4)
+    local Stroke = Instance.new("UIStroke", Row)
+    Stroke.Color = Color3.fromRGB(48, 36, 72)
+    
+    local Label = Instance.new("TextLabel", Row)
+    Label.Text = "   " .. name
+    Label.Size = UDim2.new(0.7, 0, 1, 0)
+    Label.TextColor3 = Color3.fromRGB(230, 220, 240)
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Font = Enum.Font.SourceSans
